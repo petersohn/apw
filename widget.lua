@@ -28,6 +28,8 @@ local color_bg_mute = '#532a15' -- background color when muted
 local mixer         = 'pavucontrol' -- mixer command
 local show_text     = false     -- show percentages on progressbar
 local text_color    = '#fff' -- color of text
+local notify = false
+local notify_arguments = { title = 'Volume', timeout = 2 }
 
 -- End of configuration
 
@@ -44,6 +46,13 @@ color_mute = beautiful.apw_mute_fg_color or color_mute
 color_bg_mute = beautiful.apw_mute_bg_color or color_bg_mute
 show_text = beautiful.apw_show_text or show_text
 text_color = beautiful.apw_text_colot or text_color
+notify = beautiful.apw_notify or notify
+notify_arguments = beautiful.apw_notify_arguments or notify_arguments
+
+local naughty
+if notify then
+	naughty = require("naughty")
+end
 
 local p = pulseaudio:Create()
 
@@ -89,6 +98,28 @@ local function _update()
     end
 end
 
+local notification = nil
+
+notify_arguments.destroy = function()
+	notification = nil
+end
+
+local function _notify()
+	if notify then
+		if p.Mute then
+			notify_arguments.text = 'Muted'
+		else
+			notify_arguments.text = math.ceil(p.Volume*100)..'%'
+		end
+		if notification then
+			notify_arguments.replaces_id = notification.id
+		else
+			notify_arguments.replaces_id = nil
+		end
+		notification = naughty.notify(notify_arguments)
+	end
+end
+
 function pulseWidget.SetMixer(command)
 	mixer = command
 end
@@ -96,17 +127,20 @@ end
 function pulseWidget.Up()
 	p:SetVolume(p.Volume + pulseBar.step)
 	_update()
+	_notify()
 end
 
 function pulseWidget.Down()
 	p:SetVolume(p.Volume - pulseBar.step)
 	_update()
+	_notify()
 end
 
 
 function pulseWidget.ToggleMute()
 	p:ToggleMute()
 	_update()
+	_notify()
 end
 
 function pulseWidget.Update()
